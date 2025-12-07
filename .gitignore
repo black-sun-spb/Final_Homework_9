@@ -3,13 +3,11 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-*.pyc
 
-# Virtual environment
+# Virtual environments
 .venv/
 venv/
 ENV/
-.env
 env/
 env.bak/
 venv.bak/
@@ -17,14 +15,20 @@ venv.bak/
 # Django
 *.log
 *.pot
-*.pyc
 *.mo
 db.sqlite3
 media/
 staticfiles/
 *.sqlite3
 
+# Migrations — храним в git, кроме __pycache__
+*/migrations/__pycache__/
 
+# Celery
+celerybeat-schedule
+celerybeat-schedule-*
+
+# IDE
 # PyCharm
 .idea/
 *.iml
@@ -33,6 +37,10 @@ staticfiles/
 
 # VSCode
 .vscode/
+
+# Environment files
+.env
+# .env.example оставляем в репо, чтобы показать пример
 
 # OS
 .DS_Store
