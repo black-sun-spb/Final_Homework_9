@@ -18,3 +18,11 @@ def check_and_send_reminders():
         if chat_id:
             text = f"Пора выполнить привычку: {habit.action} — {habit.place or ''}".strip()
             send_telegram_message_for_user.delay(chat_id, text)
+
+
+from celery import shared_task
+
+@shared_task
+def test_celery_task():
+    print("Celery task works!")
+    return "Task completed"
