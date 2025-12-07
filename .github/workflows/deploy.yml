@@ -1,0 +1,123 @@
+name: Django CI/CD
+
+on:
+  push:
+    branches:
+      - develope
+      - feature/course_work
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Docker уже установлен в GitHub Runner
+      - name: Enable Docker
+        run: |
+          sudo systemctl start docker
+          docker --version
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client redis-tools
+
+      ##############################
+      # POSTGRES
+      ##############################
+      - name: Start PostgreSQL
+        run: |
+          docker run -d \
+            --name pg \
+            -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
+            -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
+            -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            -p 5432:5432 \
+            postgres:15
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..20}; do
+            pg_isready -h localhost -U ${{ secrets.POSTGRES_USER }} && break
+            echo "Waiting for PostgreSQL..."
+            sleep 3
+          done
+
+      ##############################
+      # REDIS
+      ##############################
+      - name: Start Redis
+        run: |
+          docker run -d \
+            --name redis \
+            -p 6379:6379 \
+            redis:7
+
+      - name: Wait for Redis
+        run: |
+          for i in {1..10}; do
+            redis-cli ping && break
+            echo "Waiting for Redis..."
+            sleep 2
+          done
+
+      ##############################
+      # PYTHON & TESTS
+      ##############################
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Django tests
+        env:
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          DJANGO_DEBUG: 1
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: |
+          . .venv/bin/activate
+          python manage.py migrate
+          python manage.py test
+
+      ##############################
+      # DEPLOY TO SERVER
+      ##############################
+      - name: Deploy to server
+        if: success()
+        uses: appleboy/ssh-action@v0.1.9
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd ~/Final_Homework_9
+            git fetch --all
+            git reset --hard
+            git checkout feature/course_work
+            git pull origin feature/course_work
+            
+            # Прогон миграций перед деплоем
+            docker-compose run --rm web python manage.py migrate
+
+            # Обновление контейнеров
+            docker-compose up -d --build web celery celery-beat
+
+            # Перезапуск nginx, если нужно
+            docker-compose restart nginx
