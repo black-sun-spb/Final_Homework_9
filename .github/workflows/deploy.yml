@@ -107,7 +107,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            cd ~/Course_work_8
+            cd ~/Final_Homework_9
             git fetch --all
             git reset --hard
             git checkout feature/course_work
