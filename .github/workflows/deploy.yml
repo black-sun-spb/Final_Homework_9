@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - develope
-      - feature/home_work
+      - feature/course_work
 
 jobs:
   test-and-deploy:
@@ -86,9 +86,9 @@ jobs:
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_HOST: localhost
+          POSTGRES_HOST: db
           POSTGRES_PORT: 5432
-          REDIS_HOST: localhost
+          REDIS_HOST: redis
           REDIS_PORT: 6379
         run: |
           . .venv/bin/activate
@@ -112,5 +112,12 @@ jobs:
             git reset --hard
             git checkout feature/course_work
             git pull origin feature/course_work
-            docker-compose down
-            docker-compose up -d --build
+            
+            # Прогон миграций перед деплоем
+            docker-compose run --rm web python manage.py migrate
+
+            # Обновление контейнеров
+            docker-compose up -d --build web celery celery-beat
+
+            # Перезапуск nginx, если нужно
+            docker-compose restart nginx
